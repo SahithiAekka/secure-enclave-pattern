@@ -1,0 +1,47 @@
+---
+- name: Secure enclave baseline (minimal)
+  hosts: localhost
+  become: true
+
+  vars:
+    baseline_user: enclaveuser
+
+  tasks:
+    - name: Update all packages
+      ansible.builtin.command: dnf -y update
+      changed_when: true
+
+    - name: Install useful baseline packages
+      ansible.builtin.package:
+        name:
+          - curl
+          - unzip
+          - jq
+          - rsyslog
+        state: present
+
+    - name: Ensure rsyslog is enabled
+      ansible.builtin.service:
+        name: rsyslog
+        state: started
+        enabled: true
+
+    - name: Create a non-root baseline user
+      ansible.builtin.user:
+        name: "{{ baseline_user }}"
+        groups: wheel
+        append: true
+        create_home: true
+
+    - name: Set SSH hardening (even though SSH isn't exposed)
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^PasswordAuthentication"
+        line: "PasswordAuthentication no"
+
+    - name: Add enclave banner
+      ansible.builtin.copy:
+        dest: /etc/motd
+        content: |
+          Secure Enclave Baseline Applied
+          Access via AWS SSM Session Manager (no inbound SSH).
